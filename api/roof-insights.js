@@ -1,5 +1,6 @@
+// /api/roof-insights.js
 export default async function handler(req, res) {
-  // CORS opcional si llamas desde Webflow
+  // CORS (útil si llamas desde Webflow)
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -12,23 +13,44 @@ export default async function handler(req, res) {
     const apiKey = process.env.GOOGLE_SOLAR_API_KEY;
     if (!apiKey) return res.status(500).json({ error: 'Falta GOOGLE_SOLAR_API_KEY' });
 
-    const url = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${lat}&location.longitude=${lng}&requiredQuality=HIGH&key=${apiKey}`;
+    const base = 'https://solar.googleapis.com/v1/buildingInsights:findClosest';
+    const makeUrl = (q) =>
+      `${base}?location.latitude=${lat}&location.longitude=${lng}&requiredQuality=${q}&key=${apiKey}`;
 
-    const r = await fetch(url);
-    const raw = await r.text();
+    // 1) Intento con HIGH
+    let r = await fetch(makeUrl('HIGH'));
+    let raw = await r.text();
+    let data = safeJSON(raw);
 
-    let data;
-    try { data = JSON.parse(raw); }
-    catch { return res.status(r.status || 502).json({ error: 'Proveedor no devolvió JSON' }); }
+    // 2) Si falla o no hay polígono, reintenta con MEDIUM
+    let coords = getCoords(data);
+    if (!r.ok || !coords) {
+      r = await fetch(makeUrl('MEDIUM'));
+      raw = await r.text();
+      data = safeJSON(raw);
+      coords = getCoords(data);
+    }
 
-    if (!r.ok) return res.status(r.status).json({ error: 'Upstream error', details: data });
+    // 3) Si no hay polígono tras ambos intentos → hasFootprint:false
+    if (!coords || coords.length < 3) {
+      return res.status(200).json({ hasFootprint: false });
+    }
 
-    const coords = data?.solarPotential?.wholeRoofStats?.roofAreaPolygon?.coordinates?.[0];
-    if (!coords || coords.length < 3) return res.status(200).json({}); // sin footprint → usa dibujo manual
-
-    return res.status(200).json({ type: 'Polygon', coordinates: coords });
+    return res.status(200).json({
+      hasFootprint: true,
+      type: 'Polygon',
+      coordinates: coords, // [[lng,lat], ...]
+    });
   } catch (e) {
-    console.error(e);
+    console.error('roof-insights error:', e);
     return res.status(500).json({ error: 'Server crashed', message: e.message });
   }
+}
+
+function safeJSON(t) {
+  try { return JSON.parse(t); } catch { return null; }
+}
+
+function getCoords(d) {
+  return d?.solarPotential?.wholeRoofStats?.roofAreaPolygon?.coordinates?.[0] || null;
 }
