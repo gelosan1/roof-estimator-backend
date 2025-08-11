@@ -84,3 +84,20 @@ if (data?.hasFootprint) {
 
   alert('Sin footprint automático. Por favor, dibuja el contorno del techo con la herramienta Polígono.');
 }
+
+
+
+drawingManager = new google.maps.drawing.DrawingManager({
+  drawingMode: null,
+  drawingControl: true,
+  drawingControlOptions: { position: google.maps.ControlPosition.TOP_CENTER, drawingModes: ['polygon'] },
+  polygonOptions: { fillColor:'#4f46e5', fillOpacity:0.18, strokeColor:'#4f46e5', strokeWeight:2, editable:true }
+});
+drawingManager.setMap(map);
+
+
+function enableQuoteButton(){
+  const hasPoly = !!window.roofPolygon;
+  const hasLead = name.value && email.value && phone.value;
+  getQuote.disabled = !(hasPoly && hasLead);
+}
