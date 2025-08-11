@@ -54,3 +54,33 @@ function safeJSON(t) {
 function getCoords(d) {
   return d?.solarPotential?.wholeRoofStats?.roofAreaPolygon?.coordinates?.[0] || null;
 }
+
+
+// asumiendo que ya tienes: map, drawingManager, roofPolygon, computePolygonStats(), enableQuoteButton()
+
+if (data?.hasFootprint) {
+  setPolygonFromGeoJSON(data.coordinates); // [[lng,lat],...]
+} else {
+  // --- MODO DIBUJO AUTOMÁTICO ---
+  drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
+
+  // Overlay de ayuda (simple)
+  const help = document.createElement('div');
+  help.id = 'rq-help';
+  help.style.cssText = 'position:absolute;top:12px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:8px 12px;border-radius:10px;font:600 13px/1 system-ui;z-index:9999';
+  help.textContent = 'Dibuja el contorno del techo punto por punto. Doble clic para cerrar.';
+  document.body.appendChild(help);
+
+  // Cuando el usuario termine el polígono:
+  google.maps.event.addListenerOnce(drawingManager, 'polygoncomplete', function(poly){
+    if (document.getElementById('rq-help')) document.getElementById('rq-help').remove();
+    drawingManager.setDrawingMode(null);
+    // guarda y calcula
+    if (window.roofPolygon) window.roofPolygon.setMap(null);
+    window.roofPolygon = poly;
+    computePolygonStats(roofPolygon);
+    enableQuoteButton();
+  });
+
+  alert('Sin footprint automático. Por favor, dibuja el contorno del techo con la herramienta Polígono.');
+}
