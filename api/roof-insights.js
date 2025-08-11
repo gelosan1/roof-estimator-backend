@@ -5,7 +5,7 @@ export default async function handler(req, res) {
     const { lat, lng, address } = req.query;
     if (!lat || !lng) return res.status(400).json({ error: 'lat,lng requeridos' });
 
-    const apiKey = process.env.AIzaSyB-IXXXuCtAb07hSXFxt3x1VkpZwrJc0-c;
+    const apiKey = process.env.GOOGLE_SOLAR_API_KEY;
     const url = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${lat}&location.longitude=${lng}&requiredQuality=HIGH&key=${apiKey}`;
     const r = await fetch(url);
     const json = await r.json();
